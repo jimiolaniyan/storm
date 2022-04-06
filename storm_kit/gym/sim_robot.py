@@ -288,10 +288,11 @@ class RobotSim():
         world_camera_pose = self.spawn_robot_pose * robot_camera_pose
         
         #print('Spawn camera pose:',world_camera_pose.p)
-        self.gym.set_camera_transform(
-            camera_handle,
-            env_ptr,
-            world_camera_pose)
+
+        camera_offset = gymapi.Vec3(0.3, 0, 0)
+        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.deg2rad(135))
+        body_handle = self.gym.get_actor_rigid_body_handle(env_ptr, 0, 7)
+        self.gym.attach_camera_to_body(camera_handle, env_ptr, body_handle, gymapi.Transform(camera_offset, camera_rotation), gymapi.FOLLOW_TRANSFORM)
 
         self.camera_handle = camera_handle
         
@@ -338,7 +339,12 @@ class RobotSim():
             camera_handle,
             gymapi.IMAGE_DEPTH,
         )
+
+        depth_image = np.rot90(depth_image)
+
         depth_image[depth_image == np.inf] = 0
+        depth_image[depth_image < -10] = -10
+
         #depth_image[depth_image > self.DEPTH_CLIP_RANGE] = 0
         segmentation = self.gym.get_camera_image(
             self.sim,
