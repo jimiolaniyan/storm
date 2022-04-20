@@ -75,7 +75,10 @@ class RobotSim():
         self.joint_names = []
         robot_asset_options = gymapi.AssetOptions()
         robot_asset_options = load_struct_from_dict(robot_asset_options, asset_options)
-
+        self.robot_lower_limits = []
+        self.robot_upper_limits = []
+        self.cam_height = None
+        self.cam_width = None
         self.camera_handle = None
         self.collision_model_params = collision_model
         self.DEPTH_CLIP_RANGE = 6.0
@@ -130,7 +133,10 @@ class RobotSim():
 
         robot_lower_limits = robot_dof_props['lower']
         robot_upper_limits = robot_dof_props['upper']
-        
+
+        self.robot_lower_limits = robot_lower_limits
+        self.robot_upper_limits = robot_upper_limits
+
         if(init_state is None):
             if(self.init_state is None):
                 init_state = (robot_lower_limits + robot_upper_limits) / 2 
@@ -263,7 +269,7 @@ class RobotSim():
                          'p1_body_handle':link_p1_body, 'p2_body_handle': link_p2_body}
             self.link_colls.append(link_coll)
 
-    def spawn_camera(self, env_ptr, fov, width, height, robot_camera_pose):
+    def spawn_camera(self, env_ptr, robot_ptr, fov, width, height):
         """
         Spawn a camera in the environment
         Args:
@@ -277,21 +283,16 @@ class RobotSim():
         camera_props.width = width
         camera_props.use_collision_geometry = False
 
+        self.cam_width = width
+        self.cam_height = height
         self.num_cameras = 1
         camera_handle = self.gym.create_camera_sensor(env_ptr, camera_props)
-        robot_camera_pose = gymapi.Transform(
-            gymapi.Vec3(robot_camera_pose[0], robot_camera_pose[1], robot_camera_pose[2]),
-            gymapi.Quat(robot_camera_pose[3], robot_camera_pose[4], robot_camera_pose[5], robot_camera_pose[6]))
-
-        # quat (q.x, q.y, q.z, q.w)
-        # as_float_array(q.w, q.x, q.y, q.z)
-        world_camera_pose = self.spawn_robot_pose * robot_camera_pose
         
         #print('Spawn camera pose:',world_camera_pose.p)
 
-        camera_offset = gymapi.Vec3(0.3, 0, 0)
-        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.deg2rad(135))
-        body_handle = self.gym.get_actor_rigid_body_handle(env_ptr, 0, 7)
+        camera_offset = gymapi.Vec3(0.2, -0.2, 0.0)
+        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, -1, 0), np.deg2rad(110))
+        body_handle = self.gym.get_actor_rigid_body_handle(env_ptr, robot_ptr, 7)
         self.gym.attach_camera_to_body(camera_handle, env_ptr, body_handle, gymapi.Transform(camera_offset, camera_rotation), gymapi.FOLLOW_TRANSFORM)
 
         self.camera_handle = camera_handle
@@ -331,7 +332,7 @@ class RobotSim():
             env_ptr,
             camera_handle,
             gymapi.IMAGE_COLOR)
-        color_image = np.reshape(color_image, [480, 640, 4])[:, :, :3]
+        color_image = np.reshape(color_image, [self.cam_height, self.cam_width, 4])[:, :, :3]
 
         depth_image = self.gym.get_camera_image(
             self.sim,
@@ -340,7 +341,7 @@ class RobotSim():
             gymapi.IMAGE_DEPTH,
         )
 
-        depth_image = np.rot90(depth_image)
+        # depth_image = np.rot90(depth_image)
 
         depth_image[depth_image == np.inf] = 0
         depth_image[depth_image < -10] = -10

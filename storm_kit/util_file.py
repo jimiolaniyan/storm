@@ -24,7 +24,8 @@ import yaml
 
 # get paths
 def get_module_path():
-    path = os.path.dirname(__file__)
+    # path = os.path.dirname(__file__)
+    path = os.getcwd()
     return path
 
 def get_root_path():

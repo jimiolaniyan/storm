@@ -62,7 +62,14 @@ from storm_kit.util_file import get_mpc_configs_path as mpc_configs_path
 
 from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform
 from storm_kit.mpc.task.reacher_task import ReacherTask
+import pptk
+import open3d as o3d
+
 np.set_printoptions(precision=2)
+
+cam_width = 640
+cam_height = 480
+
 
 def mpc_robot_interactive(args, gym_instance):
     vis_ee_target = True
@@ -124,15 +131,6 @@ def mpc_robot_interactive(args, gym_instance):
     w_T_robot[:3,:3] = rot[0]
 
     world_instance = World(gym, sim, env_ptr, world_params, w_T_r=w_T_r)
-
-    actors = gym.get_actor_count(env_ptr)
-    print("actors", actors)
-    actor_handle = gym.get_actor_handle(env_ptr, 0)
-    print('handle', )
-    for name in gym.get_actor_rigid_body_names(env_ptr, 0):
-        print("body_name", name)
-    body_handle = gym.get_actor_rigid_body_handle(env_ptr, actor_handle, 0)
-    print("body_handle", body_handle)
 
     table_dims = np.ravel([1.5,2.5,0.7])
     cube_pose = np.ravel([0.35, -0.0,-0.35,0.0, 0.0, 0.0,1.0])
@@ -338,6 +336,47 @@ def mpc_robot_interactive(args, gym_instance):
             break
     mpc_control.close()
     return 1
+
+
+def get_point_cloud(gym, sim, env, camera_handle, camera_output):
+    depth = camera_output['depth']
+    segmentation = camera_output['segmentation']
+
+    vinv = np.linalg.inv(np.matrix(gym.get_camera_view_matrix(sim, env, camera_handle)))
+
+    proj = gym.get_camera_proj_matrix(sim, env, camera_handle)
+    fu = 2/proj[0, 0]
+    fv = 2/proj[1, 1]
+
+    depth[segmentation == 0] = -10001
+
+    center_u = cam_width/2
+    center_v = cam_height/2
+
+    points = []
+    for i in range(cam_width):
+        for j in range(cam_height):
+            if depth[j, i] < -10000:
+                continue
+            if segmentation[j, i] > 0:
+                u = -(i-center_u) / cam_width  # image-space coordinate
+                v = (j-center_v) / cam_height  # image-space coordinate
+                d = depth[j, i]  # depth buffer value
+                X2 = [d*fu*u, d*fv*v, d, 1]  # deprojection vector
+                p2 = X2*vinv  # Inverse camera view to get world coordinates
+                points.append([p2[0, 2], p2[0, 0], p2[0, 1]])
+
+    # np.savetxt("points", np.asarray(points))
+    v = pptk.viewer(points, [0])
+    v.color_map(np.array([[1,0,0]]))
+    v.set(lookat=[0, 0, 0], r=5, theta=0.4, phi=0.707)
+
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(points)
+    # pcd.transform([[-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+
+    # o3d.visualization.draw_geometries([pcd])
+
 
 if __name__ == '__main__':
     # instantiate empty gym:
