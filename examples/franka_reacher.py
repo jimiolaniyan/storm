@@ -116,7 +116,7 @@ def mpc_robot_interactive(args, gym_instance):
     robot_camera_pose[3:] = np.array([q[1], q[2], q[3], q[0]])
 
 
-    camera_handle = robot_sim.spawn_camera(env_ptr, 60, 640, 480, robot_camera_pose)
+    # camera_handle = robot_sim.spawn_camera(env_ptr, 60, 640, 480, robot_camera_pose)
 
     # get pose
     w_T_r = copy.deepcopy(robot_sim.spawn_robot_pose)
@@ -266,16 +266,16 @@ def mpc_robot_interactive(args, gym_instance):
 
             current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
 
-            if np.mod(i, 15) == 0:
-                rgb_filename = "images/rgb_frame%d.png" % i
-                gym.write_camera_image_to_file(sim, env_ptr, camera_handle, gymapi.IMAGE_COLOR, rgb_filename)
-
-                current_camera = copy.deepcopy(robot_sim.observe_camera(env_ptr))
-                depth_image = current_camera['depth']
-
-                normalized_depth = -255.0*(depth_image/np.min(depth_image + 1e-4))
-                normalized_depth_image = im.fromarray(normalized_depth.astype(np.uint8), mode="L")
-                normalized_depth_image.save("images/depth_frame%d.jpg" % i)
+            # if np.mod(i, 150) == 0:
+            #     rgb_filename = "images/rgb_frame%d.png" % i
+            #     gym.write_camera_image_to_file(sim, env_ptr, camera_handle, gymapi.IMAGE_COLOR, rgb_filename)
+            #
+            #     current_camera = copy.deepcopy(robot_sim.observe_camera(env_ptr))
+            #     depth_image = current_camera['depth']
+            #
+            #     normalized_depth = -255.0*(depth_image/np.min(depth_image + 1e-4))
+            #     normalized_depth_image = im.fromarray(normalized_depth.astype(np.uint8), mode="L")
+            #     normalized_depth_image.save("images/depth_frame%d.jpg" % i)
 
             command = mpc_control.get_command(t_step, current_robot_state, control_dt=sim_dt, WAIT=True)
 

@@ -70,7 +70,7 @@ class RobotSim():
         self.gym = gym_instance
         self.sim = sim_instance
         self.device = device
-        self.dof = None
+        self.num_dofs = None
         self.init_state = init_state
         self.joint_names = []
         robot_asset_options = gymapi.AssetOptions()
@@ -129,20 +129,13 @@ class RobotSim():
         # get joint limits and ranges for robot
         robot_dof_props = self.gym.get_actor_dof_properties(env_handle, robot_handle)
 
-        self.dof = len(robot_dof_props['effort'])
+        self.num_dofs = len(robot_dof_props['effort'])
 
         robot_lower_limits = robot_dof_props['lower']
         robot_upper_limits = robot_dof_props['upper']
 
         self.robot_lower_limits = robot_lower_limits
         self.robot_upper_limits = robot_upper_limits
-
-        if(init_state is None):
-            if(self.init_state is None):
-                init_state = (robot_lower_limits + robot_upper_limits) / 2 
-            else:
-                init_state = self.init_state
-        self.init_state = init_state
 
         # for torque control:
         #robot_dof_props['driveMode'].fill(gymapi.DOF_MODE_EFFORT)
@@ -157,21 +150,36 @@ class RobotSim():
         robot_dof_props['damping'][-2:] = 5.0
         
 
-        self.gym.set_actor_dof_properties(env_handle, robot_handle, robot_dof_props)            
-        
-        robot_dof_states = copy.deepcopy(self.gym.get_actor_dof_states(env_handle, robot_handle,
-                                                                       gymapi.STATE_ALL))
+        self.gym.set_actor_dof_properties(env_handle, robot_handle, robot_dof_props)
 
-        for i in range(len(robot_dof_states['pos'])):
-            robot_dof_states['pos'][i] = self.init_state[i]
-            robot_dof_states['vel'][i] = 0.0
-        self.init_robot_state = robot_dof_states
-        self.gym.set_actor_dof_states(env_handle, robot_handle, robot_dof_states, gymapi.STATE_ALL)
 
         if(self.collision_model_params is not None):
             self.init_collision_model(self.collision_model_params, env_handle, robot_handle)
 
         return robot_handle
+
+    def set_robot_init_state(self, env, robot):
+        return self.get_random_state(env, robot)
+
+    def get_random_state(self, env, robot):
+        good_pose = False
+        while not good_pose:
+            init_state = np.random.uniform(self.robot_lower_limits, self.robot_upper_limits)
+            robot_dof_states = copy.deepcopy(self.gym.get_actor_dof_states(env, robot, gymapi.STATE_ALL))
+
+            robot_dof_states['pos'] = init_state
+            robot_dof_states['vel'][:] = 0.0
+            self.gym.set_actor_dof_states(env, robot, robot_dof_states, gymapi.STATE_ALL)
+
+            self.gym.simulate(self.sim)
+            self.gym.fetch_results(self.sim, True)
+
+            contact_forces = self.gym.get_env_rigid_contact_forces(env)
+            contact_forces = np.array([np.asarray(list(cf)) for cf in contact_forces])
+            if np.all(contact_forces == 0.0):
+                return init_state
+
+
     def get_state(self, env_handle, robot_handle):
         robot_state = self.gym.get_actor_dof_states(env_handle, robot_handle, gymapi.STATE_ALL)
         
