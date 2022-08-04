@@ -22,7 +22,7 @@
 # DEALINGS IN THE SOFTWARE.#
 
 # This file contains a generic robot class that can load a robot asset into sim and gives access to robot's state and control.
-
+import time
 
 import copy
 
@@ -115,6 +115,8 @@ class RobotSim():
         robot_handle = self.gym.create_actor(env_handle, robot_asset,
                                              robot_pose, 'robot', coll_id, coll_id, self.ROBOT_SEG_LABEL) # coll_id, mask_filter, mask_vision
 
+        self.gym.enable_actor_dof_force_sensors(env_handle, robot_handle)
+
         # set friction prop:
         shape_props = self.gym.get_actor_rigid_shape_properties(env_handle, robot_handle)
         for i in range(len(shape_props)):
@@ -143,9 +145,9 @@ class RobotSim():
         #robot_dof_props['damping'].fill(0.0) # To avoidxb oscilaatuions?
 
         # for position control:
-        robot_dof_props['driveMode'].fill(gymapi.DOF_MODE_POS)
-        robot_dof_props['stiffness'].fill(400.0) # = self.joint_stiffnness[:self.num_dofs]
-        robot_dof_props['damping'].fill(40.0) # To avoidxb oscilaatuions?
+        robot_dof_props['driveMode'].fill(gymapi.DOF_MODE_VEL)
+        robot_dof_props['stiffness'].fill(0.0) # = self.joint_stiffnness[:self.num_dofs]
+        robot_dof_props['damping'].fill(100.0) # To avoidxb oscilaatuions?
         robot_dof_props['stiffness'][-2:] = 100.0
         robot_dof_props['damping'][-2:] = 5.0
         
