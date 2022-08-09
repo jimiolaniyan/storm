@@ -145,9 +145,14 @@ class RobotSim():
         #robot_dof_props['damping'].fill(0.0) # To avoidxb oscilaatuions?
 
         # for position control:
+        # robot_dof_props['driveMode'].fill(gymapi.DOF_MODE_POS)
+        # robot_dof_props['stiffness'].fill(400.0) # = self.joint_stiffness[:self.num_dofs]
+        # robot_dof_props['damping'].fill(40.0) # To avoid oscillations?
+
+        # for velocity control
         robot_dof_props['driveMode'].fill(gymapi.DOF_MODE_VEL)
         robot_dof_props['stiffness'].fill(0.0) # = self.joint_stiffnness[:self.num_dofs]
-        robot_dof_props['damping'].fill(100.0) # To avoidxb oscilaatuions?
+        robot_dof_props['damping'].fill(50.0) # To avoidxb oscilaatuions?
         robot_dof_props['stiffness'][-2:] = 100.0
         robot_dof_props['damping'][-2:] = 5.0
         
@@ -163,14 +168,18 @@ class RobotSim():
     def set_robot_init_state(self, env, robot):
         return self.get_random_state(env, robot)
 
-    def get_random_state(self, env, robot):
+    def get_random_state(self, env, robot, cached_poses=None):
         good_pose = False
         while not good_pose:
-            init_state = np.random.uniform(self.robot_lower_limits, self.robot_upper_limits)
-            robot_dof_states = copy.deepcopy(self.gym.get_actor_dof_states(env, robot, gymapi.STATE_ALL))
+            if cached_poses is not None:
+                init_state = cached_poses[np.random.randint(cached_poses.shape[0]), :]
+            else:
+                init_state = np.random.uniform(self.robot_lower_limits, self.robot_upper_limits)
 
+            robot_dof_states = copy.deepcopy(self.gym.get_actor_dof_states(env, robot, gymapi.STATE_ALL))
             robot_dof_states['pos'] = init_state
             robot_dof_states['vel'][:] = 0.0
+
             self.gym.set_actor_dof_states(env, robot, robot_dof_states, gymapi.STATE_ALL)
 
             self.gym.simulate(self.sim)
